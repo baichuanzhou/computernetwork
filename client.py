@@ -1,5 +1,6 @@
 from socket import *
 import time
+from tkinter.scrolledtext import ScrolledText
 from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
@@ -58,7 +59,7 @@ class LoginWindow:
 class UserWindow:
     def __init__(self, root):
         self.rootMain = Tk()
-        self.rootMain.geometry("640x800")
+        self.rootMain.geometry("800x600")
         self.rootMain.resizable(False, False)
         self.rootMain.title("消息界面")
 
@@ -69,13 +70,26 @@ class UserWindow:
         self.PORT = self.root.PORT
         self.USERNAME = self.root.USERNAME
 
-        self.s = socket(AF_INET, SOCK_DGRAM)
+        self.s = socket(AF_INET, SOCK_STREAM)
+        self.s.connect((self.IP, int(self.PORT)))
+        if self.USERNAME:
+            self.s.send(self.USERNAME.encode())
+        else:
+            self.s.send('no name'.encode())
 
-        self.messageList = Listbox(self.rootMain)
+        self.makeDialogueTo = "Nobody"
+
+        self.messageList = ScrolledText(self.rootMain)
+        self.messageList.tag_config('red', foreground='red')
+        self.messageList.tag_config('blue', foreground='blue')
+        self.messageList.tag_config('green', foreground='green')
+        self.messageList.tag_config('pink', foreground='pink')
+        self.messageList.insert(END, 'Welcome to the chat room!', 'blue')
+
         self.messageList.place(x=5, y=0, width=485, height=320)
-        if self.USERNAME != "":
-            self.messageList.insert(END, "欢迎用户" + self.USERNAME + "进入聊天室!")
-            self.messageList.insert(END, '\n')
+        if self.USERNAME == "":
+            address = self.s.getsockname()
+            self.USERNAME = address[0] + ":" + str(address[1])
 
         messageScroll = ttk.Scrollbar(self.messageList, orient=VERTICAL, command=self.messageList.yview)
         messageScroll.place(x=460, y=0, width=20, height=320)
@@ -83,6 +97,7 @@ class UserWindow:
 
         self.contactList = Listbox(self.rootMain)
         self.contactList.place(x=490, y=0, width=140, height=320)
+        self.contactList.bind('<ButtonRelease-1>', self.privateDialogue)
 
         contactScroll = ttk.Scrollbar(self.contactList, orient=VERTICAL, command=self.contactList.yview)
         contactScroll.place(x=520, y=0, width=20, height=320)
@@ -92,57 +107,79 @@ class UserWindow:
         self.messageEntry = Entry(self.rootMain, width=120, textvariable=self.message)
         self.messageEntry.place(x=5, y=330, width=485, height=50)
 
-        sendButton = Button(self.rootMain, text="发送", command=self.sendMessage)  # 需要定义函数
+        sendButton = Button(self.rootMain, text="send", command=self.sendMessage)  # 需要定义函数
         sendButton.place(x=500, y=345, width=30, height=20)
+        self.rootMain.bind('<Return>', self.sendMessage)
 
-    def addFriend(self, friend):
-        self.contacts.append(friend)
-        friendButton = Button(self.contactList, text=friend.friendName, command=friend.rootFriend.mainloop())  # 需要定义函数
-        friendButton.pack()
-        self.contactList.insert(END, friend.friendName)
+    def sendMessage(self, *args):
+        self.contacts.append('------Group chat-------')
+        messageEncode = (self.message.get() + ":;" + self.USERNAME + ":;" + self.makeDialogueTo).encode()
+        print(self.makeDialogueTo)
+        if self.makeDialogueTo not in self.contacts:
+            messagebox.showerror("Send error", message="There is nobody there!")
+            return
+        self.s.send(messageEncode)
 
-    def sendMessage(self):
-        ip_port = (self.IP, int(self.PORT))
-        messageEncode = self.message.get().encode()
-        self.s.sendto(messageEncode, ip_port)
-        self.messageList.insert(END, self.USERNAME + ": " + self.message.get())
         self.message.set("")
         return "break"
 
     def receiveMessage(self):
         while True:
             data = self.s.recv(1024)
-            dataDecode = data.decode()
-            self.messageList.insert(END, dataDecode)
+            data = data.decode()
+            try:
+                data = json.loads(data)
+                print(data)
+                self.contactList.delete(0, END)
+                self.contacts = data
+                showContactsNumber = '      Users Online: ' + str(len(data))
+                self.contactList.insert(END, showContactsNumber)
+                self.contactList.itemconfig(END, fg="green", bg="#f0f0ff")
+                self.contactList.insert(END, '------Group chat-------')
+                for contact in self.contacts:
+                    self.contactList.insert(END, contact)
+                    self.contactList.itemconfig(END, bg="green")
+            except:
+                data = data.split(':;')
+                print(data)
+                dataMessage = data[0]
+                dataSenderName = data[1]
+                dataReceiverName = data[2]
+                dataMessage = '\n' + dataMessage
+                print(dataMessage)
+                if dataReceiverName == '------Group chat-------':
+                    if dataSenderName == self.USERNAME:
+                        print(dataSenderName, "***")
+                        self.messageList.insert(END, dataMessage, 'blue')
+                    else:
+                        self.messageList.insert(END, dataMessage, 'green')
+                    if len(data) == 4:
+                        self.messageList.insert(END, dataMessage, 'pink')
+                elif dataSenderName == self.USERNAME or dataReceiverName == self.USERNAME:
+                    self.messageList.insert(END, dataMessage, 'red')
+            self.messageList.see(END)
 
+    def privateDialogue(self, *args):
+        contactIndices = self.contactList.curselection()
+        index = contactIndices[0]
+        if index > 0:
+            cursorContent = self.contactList.get(index)
+            if cursorContent == "------Group chat-------":
+                self.rootMain.title(self.USERNAME)
+                return
+            self.makeDialogueTo = cursorContent
+            privateTitle = self.USERNAME + ' --> ' + self.makeDialogueTo
+            self.rootMain.title(privateTitle)
 
-"""
-class FriendWindow:
-    def __init__(self, friendName, User):
-        self.rootFriend = Tk()
-        self.friendName = friendName
-        self.rootFriend.title("self.friendName")
-        self.rootFriend.geometry("300x150")
-        self.rootFriend.resizable(False, False)
-        self.rootFriend.configure(background="LightBlue")
-
-        self.message = StringVar()
-
-        self.sendToIP = User.IP
-        self.sendToPort = User.Port
-
-        self.messageEntry = Entry(self.rootFriend, textvariable=self.message, background="White")
-        self.messageEntry.place(x=20, y=40, width=100, height=30)
-
-        self.sendButton = Button(self.rootFriend, text="发送", background="White", command=self.sendMessage)
-        self.sendButton.place(x=125, y=50, width=20, height=10)
-"""
 
 Login = LoginWindow()
 Login.rootLogin.mainloop()
 
 User = UserWindow(Login)
+process = threading.Thread(target=User.receiveMessage)
+process.start()
 User.rootMain.mainloop()
+
 
 # UDP部分
 """
