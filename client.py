@@ -8,13 +8,6 @@ import threading
 import json
 import util
 
-"""
-IP = ''
-PORT = ''
-username = ''
-friends = {}
-currentContact = ''
-"""
 
 
 class LoginWindow:
@@ -53,13 +46,14 @@ class LoginWindow:
         self.IP = self.IP.get()
         self.PORT = self.PORT.get()
         self.USERNAME = self.USERNAME.get()
+        print(self.USERNAME + '*')
         self.rootLogin.destroy()
 
 
 class UserWindow:
     def __init__(self, root):
         self.rootMain = Tk()
-        self.rootMain.geometry("800x600")
+        self.rootMain.geometry("650x480")
         self.rootMain.resizable(False, False)
         self.rootMain.title("消息界面")
 
@@ -72,9 +66,11 @@ class UserWindow:
 
         self.s = socket(AF_INET, SOCK_STREAM)
         self.s.connect((self.IP, int(self.PORT)))
+
         if self.USERNAME:
             self.s.send(self.USERNAME.encode())
         else:
+            print('*')
             self.s.send('no name'.encode())
 
         self.makeDialogueTo = "Nobody"
@@ -87,9 +83,6 @@ class UserWindow:
         self.messageList.insert(END, 'Welcome to the chat room!', 'blue')
 
         self.messageList.place(x=5, y=0, width=485, height=320)
-        if self.USERNAME == "":
-            address = self.s.getsockname()
-            self.USERNAME = address[0] + ":" + str(address[1])
 
         messageScroll = ttk.Scrollbar(self.messageList, orient=VERTICAL, command=self.messageList.yview)
         messageScroll.place(x=460, y=0, width=20, height=320)
@@ -113,11 +106,10 @@ class UserWindow:
 
     def sendMessage(self, *args):
         self.contacts.append('------Group chat-------')
-        messageEncode = (self.message.get() + ":;" + self.USERNAME + ":;" + self.makeDialogueTo).encode()
-        print(self.makeDialogueTo)
         if self.makeDialogueTo not in self.contacts:
             messagebox.showerror("Send error", message="There is nobody there!")
             return
+        messageEncode = (self.message.get() + ":;" + self.USERNAME + ":;" + self.makeDialogueTo).encode()
         self.s.send(messageEncode)
 
         self.message.set("")
@@ -127,9 +119,10 @@ class UserWindow:
         while True:
             data = self.s.recv(1024)
             data = data.decode()
+            print("data.decode():", data)
             try:
                 data = json.loads(data)
-                print(data)
+                print("json.loads(data):", data)
                 self.contactList.delete(0, END)
                 self.contacts = data
                 showContactsNumber = '      Users Online: ' + str(len(data))
@@ -149,7 +142,6 @@ class UserWindow:
                 print(dataMessage)
                 if dataReceiverName == '------Group chat-------':
                     if dataSenderName == self.USERNAME:
-                        print(dataSenderName, "***")
                         self.messageList.insert(END, dataMessage, 'blue')
                     else:
                         self.messageList.insert(END, dataMessage, 'green')
@@ -180,16 +172,3 @@ process = threading.Thread(target=User.receiveMessage)
 process.start()
 User.rootMain.mainloop()
 
-
-# UDP部分
-"""
-ip_port = (IP, int(PORT))
-s = socket(AF_INET, SOCK_DGRAM)
-
-
-if username:
-    s.sendto(username.encode(), ip_port)  # 发送用户名
-else:
-    username = IP + ':' + PORT
-    s.sendto(username.encode(), ip_port)
-"""
