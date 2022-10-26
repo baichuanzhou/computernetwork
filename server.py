@@ -68,7 +68,7 @@ class Server(threading.Thread):
     def receiveMessage(self, data, address):
         Lock.acquire()
         try:
-            Queue.put((address, data))
+            Queue.put((data, address))
         finally:
             Lock.release()
 
@@ -76,19 +76,21 @@ class Server(threading.Thread):
         while True:
             if not Queue.empty():
                 data = ''
-                message = Queue.get()
-                if isinstance(message[1], str):
+                message, sender = Queue.get()
+                print("sender: ", sender)
+                print("message: ", message)
+                if isinstance(message, str):
                     for i in range(len(users)):
                         # users[i][1] 是用户名，users[i][2]是address， 将message[0]为用户名
                         for j in range(len(users)):
-                            if message[0] == users[j][2]:
+                            if sender == users[j][2]:
                                 print(' Message from user[{}]'.format(j))
-                                data = ' ' + users[j][1] + ':' + message[1]
+                                data = ' ' + users[j][1] + ':' + message
                                 break
                         users[i][0].send(data.encode())
 
-                if isinstance(message[1], list):
-                    data = json.dumps(message[1])
+                if isinstance(message, list):
+                    data = json.dumps(message)
                     for i in range(len(users)):
                         try:
                             users[i][0].send(data.encode())
@@ -109,7 +111,7 @@ class Server(threading.Thread):
 
 
 if __name__ == '__main__':
-    server = Server()
+    server = Server(11111)
     server.start()
     while True:
         time.sleep(1)

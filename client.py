@@ -6,8 +6,12 @@ from tkinter import ttk
 from tkinter import messagebox
 import threading
 import json
+from PIL import Image, ImageTk
 import util
 
+def get_image(filename, width, height):
+    image = Image.open(filename).resize((width, height))
+    return ImageTk.PhotoImage(image)
 
 
 class LoginWindow:
@@ -55,7 +59,6 @@ class UserWindow:
         self.rootMain = Tk()
         self.rootMain.geometry("650x480")
         self.rootMain.resizable(False, False)
-        self.rootMain.title("消息界面")
 
         self.contacts = []
 
@@ -63,6 +66,7 @@ class UserWindow:
         self.IP = self.root.IP
         self.PORT = self.root.PORT
         self.USERNAME = self.root.USERNAME
+        self.rootMain.title(self.USERNAME + "的消息界面")
 
         self.s = socket(AF_INET, SOCK_STREAM)
         self.s.connect((self.IP, int(self.PORT)))
@@ -156,10 +160,10 @@ class UserWindow:
         index = contactIndices[0]
         if index > 0:
             cursorContent = self.contactList.get(index)
-            if cursorContent == "------Group chat-------":
-                self.rootMain.title(self.USERNAME)
-                return
             self.makeDialogueTo = cursorContent
+            if cursorContent == "------Group chat-------":
+                self.rootMain.title("Group Chat")
+                return
             privateTitle = self.USERNAME + ' --> ' + self.makeDialogueTo
             self.rootMain.title(privateTitle)
 
@@ -171,4 +175,3 @@ User = UserWindow(Login)
 process = threading.Thread(target=User.receiveMessage)
 process.start()
 User.rootMain.mainloop()
-
